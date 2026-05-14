@@ -11,6 +11,8 @@ export function useItems() {
     setLoading(true);
     setError(null);
     try {
+      // First flip any past-date items to 'expired' so the streak math is honest
+      await api.autoExpire();
       setItems(await api.listItems());
     } catch (e) {
       setError((e as Error).message);

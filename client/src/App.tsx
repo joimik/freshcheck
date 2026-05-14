@@ -5,8 +5,7 @@ import { BottomNav } from './components/BottomNav';
 import { ItemModal } from './components/ItemModal';
 import { Onboarding, hasSeenOnboarding } from './components/Onboarding';
 import { Home } from './pages/Home';
-import { Shopping } from './pages/Shopping';
-import { Recipes } from './pages/Recipes';
+import { Streak } from './pages/Streak';
 import { Stats } from './pages/Stats';
 import { Settings } from './pages/Settings';
 import { useItems } from './hooks/useItems';
@@ -66,8 +65,7 @@ function Shell() {
               />
             }
           />
-          <Route path="/shopping" element={<Shopping />} />
-          <Route path="/recipes" element={<Recipes items={items} />} />
+          <Route path="/streak" element={<Streak />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/settings" element={<Settings items={items} onClearAll={clearAll} />} />
         </Routes>

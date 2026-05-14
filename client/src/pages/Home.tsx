@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, ArrowUpDown, WifiOff, Settings as SettingsIcon } from 'lucide-react';
+import { Search, ArrowUpDown, WifiOff } from 'lucide-react';
 import { ItemCard } from '../components/ItemCard';
 import { SummaryCards } from '../components/SummaryCards';
 import { EmptyState } from '../components/EmptyState';
@@ -108,13 +107,6 @@ export function Home({ items, loading, onDelete, onUse, onUseOne, onEdit, onAdd 
           <div className="text-xs uppercase tracking-wider text-gray-500">Your kitchen</div>
           <h1 className="text-2xl font-bold text-white">FreshCheck</h1>
         </div>
-        <Link
-          to="/settings"
-          aria-label="Settings"
-          className="p-2 rounded-xl text-gray-500 hover:bg-[#1a1a1a] hover:text-gray-200 transition"
-        >
-          <SettingsIcon size={20} />
-        </Link>
       </header>
 
       {!online && (

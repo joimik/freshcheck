@@ -1,18 +1,16 @@
 import { NavLink } from 'react-router-dom';
-import { Home, ShoppingBag, ChefHat, BarChart3, Plus } from 'lucide-react';
+import { Home, Flame, BarChart3, Settings, Plus } from 'lucide-react';
 
 type Props = { onAddClick: () => void };
 
-// Compact 5-tab layout: [Home] [Shopping] [+] [Recipes] [Stats]
-// Settings moved into a corner icon on Home — see ../App for the route.
 const leftTabs = [
   { to: '/', label: 'Home', Icon: Home },
-  { to: '/shopping', label: 'Shop', Icon: ShoppingBag },
+  { to: '/streak', label: 'Streak', Icon: Flame },
 ] as const;
 
 const rightTabs = [
-  { to: '/recipes', label: 'Recipes', Icon: ChefHat },
   { to: '/stats', label: 'Stats', Icon: BarChart3 },
+  { to: '/settings', label: 'Settings', Icon: Settings },
 ] as const;
 
 export function BottomNav({ onAddClick }: Props) {

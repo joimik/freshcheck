@@ -32,9 +32,9 @@ const SLIDES: Slide[] = [
     icon: Barcode,
   },
   {
-    emoji: '🍳',
-    title: 'Cook before it spoils',
-    body: 'Get recipe ideas using only what is about to expire. Reduce waste, save money, eat well.',
+    emoji: '🔥',
+    title: 'Build your streak',
+    body: 'Every day without wasting food extends your streak. Earn achievements, track money saved, see CO₂ avoided. Make zero-waste a habit.',
     icon: Camera,
   },
 ];

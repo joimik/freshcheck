@@ -39,16 +39,6 @@ export type NewItem = {
   estimated_cost?: number | null;
 };
 
-export type Recipe = {
-  name: string;
-  prep_time: string;
-  steps: string[];
-  uses_ingredients: string[];
-  all_ingredients: string[];
-  thumbnail: string | null;
-  source: string;
-};
-
 export type Stats = {
   total_all: number;
   total_active: number;
@@ -56,15 +46,11 @@ export type Stats = {
   expired: number;
   waste_score: number;
   by_week: { week: string; count: number }[];
-  wasted_cost: number; // total IDR of expired items
-};
-
-export type ShoppingItem = {
-  id: number;
-  name: string;
-  category: Category;
-  done: boolean;
-  added_date: string;
+  wasted_cost: number;   // IDR lost to expired items
+  saved_money: number;   // IDR saved from items used in time
+  saved_co2: number;     // kg of CO2 saved from prevented waste
+  streak: number;        // days without anything expiring
+  streak_broken_today: boolean;
 };
 
 export type ItemTemplate = {
