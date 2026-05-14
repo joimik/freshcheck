@@ -160,6 +160,97 @@ async function tryOpenProductsFacts(barcode: string): Promise<BarcodeResult | nu
   }
 }
 
+// Wikidata — encyclopedia of structured data, includes EAN/UPC barcodes for
+// many products. Free, no API key. Coverage is sparse but quality is high.
+async function tryWikidata(barcode: string): Promise<BarcodeResult | null> {
+  try {
+    // P3962 = GTIN-13 / EAN, P3964 = GTIN-12 / UPC-A
+    const sparql = `SELECT ?item ?itemLabel ?image WHERE {
+      { ?item wdt:P3962 "${barcode}" } UNION { ?item wdt:P3964 "${barcode}" }
+      OPTIONAL { ?item wdt:P18 ?image }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en,id". }
+    } LIMIT 1`;
+    const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(sparql)}`;
+    const r = await fetch(url, {
+      headers: { Accept: 'application/sparql-results+json' },
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const binding = data.results?.bindings?.[0];
+    if (!binding?.itemLabel?.value) return null;
+    return {
+      product_name: binding.itemLabel.value,
+      category: 'other',
+      image_url: binding.image?.value || null,
+      source: 'Wikidata',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Web-search fallback. When every structured database fails, search the
+// open web for the barcode number itself and extract the first result's
+// title as a best-guess product name. Uses a free CORS proxy because most
+// search engines don't expose CORS.
+//
+// Quality is lower than a real database hit, so this only runs as a last
+// resort, and we mark the source so the UI can flag it.
+async function tryWebSearch(barcode: string): Promise<BarcodeResult | null> {
+  // CORS proxies — rotate through in case one is down/rate-limited
+  const proxies = [
+    (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  ];
+
+  // DuckDuckGo HTML — has a stable structure we can regex out of
+  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(barcode + ' product')}`;
+
+  for (const wrap of proxies) {
+    try {
+      const r = await fetch(wrap(searchUrl));
+      if (!r.ok) continue;
+      const html = await r.text();
+
+      // DuckDuckGo result titles use class="result__a"
+      const titleMatches = [...html.matchAll(/<a[^>]*class="result__a"[^>]*>([^<]+)<\/a>/g)];
+      if (!titleMatches.length) continue;
+
+      // Score results by how product-like they look: longer titles with
+      // letters score higher than pure numeric/junk results.
+      for (const m of titleMatches.slice(0, 5)) {
+        const raw = m[1]
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, ' ')
+          .trim();
+
+        // Most search results format as "Product — Site Name" or "Product | Site"
+        const productPart = raw.split(/\s+[-–|]\s+/)[0].trim();
+
+        // Reject if too short, all digits, or obviously generic
+        if (productPart.length < 4) continue;
+        if (/^\d+$/.test(productPart)) continue;
+        if (/^(home|buy|shop|amazon|ebay)$/i.test(productPart)) continue;
+
+        return {
+          product_name: productPart.slice(0, 80),
+          category: 'other',
+          image_url: null,
+          source: 'Web search',
+        };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 // Open Pet Food Facts — pet food and treats
 async function tryOpenPetFoodFacts(barcode: string): Promise<BarcodeResult | null> {
   try {
@@ -289,22 +380,32 @@ export const api = {
   searchByText: (query: string) => searchProductByText(query),
 
   async scanBarcode(barcode: string) {
-    // 5 databases in parallel — first match wins. Coverage:
+    // 6 structured databases in parallel — first match wins. Coverage:
     //   • Open Food Facts        → food & beverages worldwide
     //   • UPC Item DB            → packaged goods, US + Asia
     //   • Open Beauty Facts      → cosmetics & personal care
     //   • Open Products Facts    → general consumer goods, electronics, toys
     //   • Open Pet Food Facts    → pet food and treats
-    const [off, upc, obf, opf, opetf] = await Promise.all([
+    //   • Wikidata               → encyclopedic entries with EAN/UPC
+    const [off, upc, obf, opf, opetf, wiki] = await Promise.all([
       tryOpenFoodFacts(barcode),
       tryUPCItemDB(barcode),
       tryOpenBeautyFacts(barcode),
       tryOpenProductsFacts(barcode),
       tryOpenPetFoodFacts(barcode),
+      tryWikidata(barcode),
     ]);
 
-    const result = off ?? upc ?? obf ?? opf ?? opetf;
-    if (!result) throw new Error('Product not found in any database');
+    let result = off ?? upc ?? obf ?? opf ?? opetf ?? wiki;
+
+    // Last resort: open-web search via CORS proxy. Slower and lower quality
+    // than a database hit, but catches obscure local products that aren't
+    // catalogued anywhere structured.
+    if (!result) {
+      result = await tryWebSearch(barcode);
+    }
+
+    if (!result) throw new Error('Product not found anywhere — even the open web');
 
     rememberBarcode({
       barcode,
@@ -318,6 +419,7 @@ export const api = {
       product_name: result.product_name,
       category: result.category,
       image_url: result.image_url,
+      source: result.source,
     };
   },
 };

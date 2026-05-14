@@ -215,10 +215,16 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
       setCategory((data.category as Category) ?? 'other');
       setBarcode(code);
       if (data.image_url) setImageUrl(data.image_url);
-      toast('Product found — enter expiry date', 'success');
+
+      // Web-search results are a best-guess — flag them so the user knows to verify
+      if (data.source === 'Web search') {
+        toast('Best guess from web search — please verify the name', 'info');
+      } else {
+        toast(`Found in ${data.source} — enter expiry date`, 'success');
+      }
       setTab('manual');
     } catch {
-      toast('Not in any database — fill in the name manually', 'info');
+      toast('Not found anywhere — fill in the name manually', 'info');
       setBarcode(code);
       setTab('manual');
     } finally {
@@ -423,7 +429,7 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
                 </div>
               )}
               <p className="text-xs text-gray-600 text-center">
-                Point the camera at a product barcode. We try <span className="font-medium">5 databases</span> in parallel — the first match wins.
+                Point at a barcode — we check <span className="font-medium">6 databases</span> and fall back to <span className="font-medium">web search</span> if nothing matches.
               </p>
 
               {/* Recently scanned — tap to re-add */}
