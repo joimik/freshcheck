@@ -131,7 +131,7 @@ export function Streak() {
       `💰 Saved Rp ${data!.saved_money.toLocaleString('id-ID')}\n` +
       `🌍 ${data!.saved_co2.toFixed(1)} kg of CO₂ kept out of the trash\n` +
       `🏆 ${unlockedCount}/${ACHIEVEMENTS.length} achievements unlocked\n\n` +
-      `Stop wasting food → shelflife.vercel.app`;
+      `Stop wasting food → myshelflife.vercel.app`;
 
     // Use the native share sheet on mobile, fall back to clipboard on desktop
     if (navigator.share) {
