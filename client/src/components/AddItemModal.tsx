@@ -214,7 +214,7 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
       toast('Product found — enter expiry date', 'success');
       setTab('manual');
     } catch (err) {
-      toast('Product not found — enter manually', 'info');
+      toast('Not in any database — fill in the name manually', 'info');
       setBarcode(code);
       setTab('manual');
     } finally {
@@ -437,6 +437,15 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Barcode chip — shown when barcode scanned but no image found */}
+            {barcode && !imageUrl && (
+              <div className="flex items-center gap-2 bg-[#242424] rounded-xl px-3 py-2">
+                <Barcode size={15} className="text-gray-500 shrink-0" />
+                <span className="text-xs text-gray-400 font-mono truncate">{barcode}</span>
+                <span className="text-[10px] text-gray-600 ml-auto shrink-0">Barcode saved</span>
+              </div>
+            )}
+
             {/* Product image — shown after a successful barcode scan */}
             {imageUrl && (
               <div className="flex items-center gap-3 bg-[#242424] rounded-2xl p-3">

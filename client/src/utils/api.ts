@@ -53,6 +53,115 @@ type OpenFoodFactsResponse = {
   };
 };
 
+type UPCItemDBResponse = {
+  code: string;
+  items?: {
+    title?: string;
+    brand?: string;
+    category?: string;
+    images?: string[];
+  }[];
+};
+
+type BarcodeSpiderResponse = {
+  status?: number;
+  product?: {
+    name?: string;
+    brand?: string;
+    category?: string;
+    images?: string[];
+  };
+  error?: string;
+};
+
+// Result type shared by all barcode sources
+type BarcodeResult = {
+  product_name: string;
+  category: string;
+  image_url: string | null;
+  source: string;
+};
+
+// ── Source 1: Open Food Facts (best for food, global) ───────────────────────
+async function tryOpenFoodFacts(barcode: string): Promise<BarcodeResult | null> {
+  try {
+    const r = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(barcode)}.json`
+    );
+    if (!r.ok) return null;
+    const data = (await r.json()) as OpenFoodFactsResponse;
+    if (data.status !== 1 || !data.product) return null;
+    const name = data.product.product_name || data.product.brands;
+    if (!name) return null;
+    return {
+      product_name: name,
+      category: inferCategory(data.product.categories_tags),
+      image_url: data.product.image_front_url ?? null,
+      source: 'Open Food Facts',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── Source 2: UPC Item DB (good for packaged goods, US + Asia) ───────────────
+async function tryUPCItemDB(barcode: string): Promise<BarcodeResult | null> {
+  try {
+    const r = await fetch(
+      `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`
+    );
+    if (!r.ok) return null;
+    const data = (await r.json()) as UPCItemDBResponse;
+    if (data.code !== 'OK' || !data.items?.length) return null;
+    const item = data.items[0];
+    const name = item.title || item.brand;
+    if (!name) return null;
+    return {
+      product_name: name,
+      category: inferCategoryFromString(item.category ?? ''),
+      image_url: item.images?.[0] ?? null,
+      source: 'UPC Item DB',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── Source 3: Open Beauty Facts (cosmetics, medicine, personal care) ─────────
+async function tryOpenBeautyFacts(barcode: string): Promise<BarcodeResult | null> {
+  try {
+    const r = await fetch(
+      `https://world.openbeautyfacts.org/api/v0/product/${encodeURIComponent(barcode)}.json`
+    );
+    if (!r.ok) return null;
+    const data = (await r.json()) as OpenFoodFactsResponse;
+    if (data.status !== 1 || !data.product) return null;
+    const name = data.product.product_name || data.product.brands;
+    if (!name) return null;
+    return {
+      product_name: name,
+      category: 'other',
+      image_url: data.product.image_front_url ?? null,
+      source: 'Open Beauty Facts',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Infer category from a plain text string (for UPC Item DB)
+function inferCategoryFromString(cat: string): string {
+  const c = cat.toLowerCase();
+  if (/meat|beef|pork|chicken|fish|seafood/.test(c)) return 'meat';
+  if (/dairy|milk|cheese|yogurt|butter/.test(c)) return 'dairy';
+  if (/fruit|vegetable|produce|fresh/.test(c)) return 'produce';
+  if (/sauce|condiment|dressing|seasoning|spice/.test(c)) return 'condiments';
+  if (/can|canned|tin|preserved/.test(c)) return 'canned';
+  if (/snack|candy|chip|cookie|sweet|biscuit/.test(c)) return 'snacks';
+  if (/medicine|drug|vitamin|supplement|health/.test(c)) return 'medicine';
+  return 'other';
+}
+
 type Meal = { idMeal: string; strMeal: string; strMealThumb?: string };
 type MealDetails = Meal & {
   strInstructions?: string;
@@ -96,20 +205,23 @@ export const api = {
   stats: (): Promise<Stats> => getStats(),
 
   async scanBarcode(barcode: string) {
-    const url = `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(
-      barcode
-    )}.json`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('Open Food Facts request failed');
-    const data = (await r.json()) as OpenFoodFactsResponse;
-    if (data.status !== 1 || !data.product) {
-      throw new Error('Product not found');
-    }
+    // Try 3 databases in parallel — use whichever responds first with a result.
+    // Open Food Facts  → best for food worldwide
+    // UPC Item DB      → good for packaged goods, Asian products
+    // Open Beauty Facts → cosmetics, medicine, personal care
+    const [off, upc, obf] = await Promise.all([
+      tryOpenFoodFacts(barcode),
+      tryUPCItemDB(barcode),
+      tryOpenBeautyFacts(barcode),
+    ]);
+
+    const result = off ?? upc ?? obf;
+    if (!result) throw new Error('Product not found in any database');
+
     return {
-      product_name:
-        data.product.product_name || data.product.brands || 'Unknown product',
-      category: inferCategory(data.product.categories_tags),
-      image_url: data.product.image_front_url ?? null,
+      product_name: result.product_name,
+      category: result.category,
+      image_url: result.image_url,
     };
   },
 
