@@ -14,7 +14,13 @@ type PremiumState = {
   expires: string | null; // ISO date, null = lifetime or free
 };
 
+// Owner build: VITE_OWNER_BUILD=true forces lifetime premium always on
+const IS_OWNER_BUILD = import.meta.env.VITE_OWNER_BUILD === 'true';
+
 function read(): PremiumState {
+  // Owner build is always lifetime premium — no localStorage needed
+  if (IS_OWNER_BUILD) return { tier: 'lifetime', expires: null };
+
   try {
     const tier = (localStorage.getItem(PREMIUM_KEY) as PremiumTier) || 'free';
     const expires = localStorage.getItem(PREMIUM_EXPIRES_KEY);
