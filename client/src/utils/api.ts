@@ -1,11 +1,28 @@
-import type { Item, NewItem, Recipe, Stats } from '../types';
+import type {
+  Item,
+  ItemTemplate,
+  NewItem,
+  RecentBarcode,
+  Recipe,
+  ShoppingItem,
+  Stats,
+} from '../types';
 import {
   addItem,
+  addShoppingItem,
   clearAllItems,
+  clearDoneShopping,
   deleteItem,
+  deleteShoppingItem,
   getStats,
   listActiveItems,
+  listRecentBarcodes,
+  listShopping,
+  listTopTemplates,
+  rememberBarcode,
+  toggleShoppingItem,
   updateItem,
+  upsertTemplate,
 } from './db';
 
 // Open Food Facts category → our internal category bucket.
@@ -197,12 +214,29 @@ function estimatePrepTime(instructions: string | undefined): string {
 
 export const api = {
   listItems: (): Promise<Item[]> => listActiveItems(),
-  addItem: (item: NewItem): Promise<Item> => addItem(item),
+  addItem: async (item: NewItem): Promise<Item> => {
+    const added = await addItem(item);
+    // Remember as a template for quick re-add next time
+    upsertTemplate(added).catch(() => { /* ignore */ });
+    return added;
+  },
   updateItem: (id: number, patch: Partial<Item>): Promise<Item> => updateItem(id, patch),
   deleteItem: (id: number): Promise<{ ok: true }> =>
     deleteItem(id).then(() => ({ ok: true })),
   clearAll: (): Promise<void> => clearAllItems(),
   stats: (): Promise<Stats> => getStats(),
+
+  // Shopping list
+  listShopping: (): Promise<ShoppingItem[]> => listShopping(),
+  addShoppingItem: (item: { name: string; category: 'meat' | 'dairy' | 'produce' | 'condiments' | 'canned' | 'snacks' | 'medicine' | 'other' }): Promise<ShoppingItem> =>
+    addShoppingItem(item),
+  toggleShoppingItem: (id: number): Promise<void> => toggleShoppingItem(id),
+  deleteShoppingItem: (id: number): Promise<void> => deleteShoppingItem(id),
+  clearDoneShopping: (): Promise<void> => clearDoneShopping(),
+
+  // Templates + recent barcodes
+  listTopTemplates: (): Promise<ItemTemplate[]> => listTopTemplates(),
+  listRecentBarcodes: (): Promise<RecentBarcode[]> => listRecentBarcodes(),
 
   async scanBarcode(barcode: string) {
     // Try 3 databases in parallel — use whichever responds first with a result.
@@ -217,6 +251,15 @@ export const api = {
 
     const result = off ?? upc ?? obf;
     if (!result) throw new Error('Product not found in any database');
+
+    // Remember this barcode so user can quickly re-add the same product
+    rememberBarcode({
+      barcode,
+      product_name: result.product_name,
+      category: result.category as import('../types').Category,
+      image_url: result.image_url,
+      scanned_at: new Date().toISOString(),
+    }).catch(() => { /* ignore */ });
 
     return {
       product_name: result.product_name,

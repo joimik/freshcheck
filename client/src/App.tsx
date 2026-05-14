@@ -2,18 +2,23 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ToastProvider } from './hooks/useToast';
 import { BottomNav } from './components/BottomNav';
-import { AddItemModal } from './components/AddItemModal';
+import { ItemModal } from './components/ItemModal';
+import { Onboarding, hasSeenOnboarding } from './components/Onboarding';
 import { Home } from './pages/Home';
+import { Shopping } from './pages/Shopping';
 import { Recipes } from './pages/Recipes';
 import { Stats } from './pages/Stats';
 import { Settings } from './pages/Settings';
 import { useItems } from './hooks/useItems';
 import { api } from './utils/api';
 import { registerServiceWorker } from './utils/notifications';
+import type { Item } from './types';
 
 function Shell() {
-  const { items, loading, add, remove, markUsed, refresh } = useItems();
-  const [addOpen, setAddOpen] = useState(false);
+  const { items, loading, add, update, remove, useOne, markUsed, refresh } = useItems();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Item | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(!hasSeenOnboarding());
 
   useEffect(() => {
     registerServiceWorker();
@@ -22,6 +27,25 @@ function Shell() {
   async function clearAll() {
     await api.clearAll();
     await refresh();
+  }
+
+  function openAdd() {
+    setEditing(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(item: Item) {
+    setEditing(item);
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditing(null);
+  }
+
+  if (showOnboarding) {
+    return <Onboarding onDone={() => setShowOnboarding(false)} />;
   }
 
   return (
@@ -36,17 +60,26 @@ function Shell() {
                 loading={loading}
                 onDelete={remove}
                 onUse={markUsed}
-                onAdd={() => setAddOpen(true)}
+                onUseOne={useOne}
+                onEdit={openEdit}
+                onAdd={openAdd}
               />
             }
           />
+          <Route path="/shopping" element={<Shopping />} />
           <Route path="/recipes" element={<Recipes items={items} />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/settings" element={<Settings items={items} onClearAll={clearAll} />} />
         </Routes>
       </main>
-      <BottomNav onAddClick={() => setAddOpen(true)} />
-      <AddItemModal open={addOpen} onClose={() => setAddOpen(false)} onAdd={add} />
+      <BottomNav onAddClick={openAdd} />
+      <ItemModal
+        open={modalOpen}
+        onClose={closeModal}
+        onAdd={add}
+        onUpdate={update}
+        editingItem={editing}
+      />
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Bookmark, Download, Trash2 } from 'lucide-react';
+import { Bell, Bookmark, Download, Trash2, BookOpen } from 'lucide-react';
 import type { Category, Item } from '../types';
 import { CATEGORY_META } from '../types';
 import { loadSettings, saveSettings, type Settings as S } from '../utils/settings';
@@ -142,6 +142,15 @@ export function Settings({ items, onClearAll }: Props) {
       </section>
 
       <section className="card space-y-2">
+        <button
+          onClick={() => {
+            localStorage.removeItem('freshcheck.onboarded');
+            location.reload();
+          }}
+          className="btn-ghost w-full justify-start"
+        >
+          <BookOpen size={18} /> Replay intro tutorial
+        </button>
         <button onClick={exportCsv} className="btn-ghost w-full justify-start">
           <Download size={18} /> Export inventory as CSV
         </button>

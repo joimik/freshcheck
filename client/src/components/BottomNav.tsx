@@ -1,20 +1,25 @@
 import { NavLink } from 'react-router-dom';
-import { Home, ChefHat, BarChart3, Settings, Plus } from 'lucide-react';
+import { Home, ShoppingBag, ChefHat, BarChart3, Plus } from 'lucide-react';
 
 type Props = { onAddClick: () => void };
 
-const tabs = [
+// Compact 5-tab layout: [Home] [Shopping] [+] [Recipes] [Stats]
+// Settings moved into a corner icon on Home — see ../App for the route.
+const leftTabs = [
   { to: '/', label: 'Home', Icon: Home },
+  { to: '/shopping', label: 'Shop', Icon: ShoppingBag },
+] as const;
+
+const rightTabs = [
   { to: '/recipes', label: 'Recipes', Icon: ChefHat },
   { to: '/stats', label: 'Stats', Icon: BarChart3 },
-  { to: '/settings', label: 'Settings', Icon: Settings },
 ] as const;
 
 export function BottomNav({ onAddClick }: Props) {
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-[#141414]/95 backdrop-blur border-t border-[#2a2a2a] z-40">
       <div className="max-w-md mx-auto grid grid-cols-5 items-end px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        {tabs.slice(0, 2).map(({ to, label, Icon }) => (
+        {leftTabs.map(({ to, label, Icon }) => (
           <NavLink key={to} to={to} end className="flex flex-col items-center py-2 text-xs text-gray-500">
             {({ isActive }) => (
               <>
@@ -36,7 +41,7 @@ export function BottomNav({ onAddClick }: Props) {
           <span className="text-xs text-gray-500 mt-9">Add</span>
         </button>
 
-        {tabs.slice(2).map(({ to, label, Icon }) => (
+        {rightTabs.map(({ to, label, Icon }) => (
           <NavLink key={to} to={to} end className="flex flex-col items-center py-2 text-xs text-gray-500">
             {({ isActive }) => (
               <>

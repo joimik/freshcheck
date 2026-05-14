@@ -62,6 +62,20 @@ export function Stats() {
         ))}
       </div>
 
+      {data.wasted_cost > 0 && (
+        <div className="card border border-danger/30">
+          <div className="text-sm font-medium text-gray-300">Money lost to waste</div>
+          <div className="flex items-end gap-2 mt-1">
+            <div className="text-3xl font-bold text-danger">
+              Rp {data.wasted_cost.toLocaleString('id-ID')}
+            </div>
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            Estimated value of items that expired before use.
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="text-sm font-medium text-gray-300">Waste score</div>
         <div className="flex items-end gap-2 mt-1">

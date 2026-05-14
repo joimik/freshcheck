@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Barcode, Camera, Pencil, Loader2, AlertCircle } from 'lucide-react';
+import { X, Barcode, Camera, Pencil, Loader2, AlertCircle, History } from 'lucide-react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import Tesseract from 'tesseract.js';
-import type { Category, NewItem } from '../types';
-import { CATEGORY_META } from '../types';
+import type { Category, Item, NewItem, Location, RecentBarcode } from '../types';
+import { CATEGORY_META, LOCATION_META, STORAGE_TIPS } from '../types';
 import { api } from '../utils/api';
 import { todayISO } from '../utils/dates';
 import { loadSettings } from '../utils/settings';
@@ -16,9 +16,12 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onAdd: (item: NewItem) => Promise<unknown>;
+  onUpdate?: (id: number, patch: Partial<Item>) => Promise<unknown>;
+  editingItem?: Item | null;
 };
 
 const CATEGORIES = Object.keys(CATEGORY_META) as Category[];
+const LOCATIONS = Object.keys(LOCATION_META) as Location[];
 
 const MONTHS: Record<string, string> = {
   jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
@@ -27,26 +30,22 @@ const MONTHS: Record<string, string> = {
 
 const MON = 'JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC';
 
-// OCR output often loses spaces (`OCT 282026` instead of `OCT 28 2026`) and
-// swaps `.` for `,`. Normalize before pattern-matching so a single set of
-// patterns covers more real-world labels.
 function normalizeOcrText(text: string): string {
   return text
     .toUpperCase()
-    .replace(/,/g, '.')                       // dot-matrix prints often OCR `.` as `,`
-    .replace(/([A-Z])(\d)/g, '$1 $2')          // OCT282026 → OCT 282026
-    .replace(/(\d)([A-Z])/g, '$1 $2');         // 2026M4 → 2026 M4
+    .replace(/,/g, '.')
+    .replace(/([A-Z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Z])/g, '$1 $2');
 }
 
-// Try most-specific patterns first; the bare 8-digit fallback is last.
 const DATE_PATTERNS: RegExp[] = [
-  /\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/,                            // YYYY-MM-DD
-  /\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/,                            // DD-MM-YYYY or MM-DD-YYYY
-  new RegExp(`\\b(\\d{1,2})\\s+(${MON})\\s+(20\\d{2})\\b`),                // DD MON YYYY
-  new RegExp(`\\b(${MON})\\s+(\\d{1,2})\\s+(20\\d{2})\\b`),                // MON DD YYYY
-  new RegExp(`\\b(${MON})\\s+(\\d{2})(20\\d{2})\\b`),                      // MON DDYYYY (space lost between day+year)
-  new RegExp(`\\b(\\d{2})\\s*(${MON})\\s*(20\\d{2})\\b`),                  // DDMONYYYY (squished both sides)
-  /\b(\d{2})(\d{2})(20\d{2})\b/,                                           // DDMMYYYY bare 8-digit blob
+  /\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/,
+  /\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/,
+  new RegExp(`\\b(\\d{1,2})\\s+(${MON})\\s+(20\\d{2})\\b`),
+  new RegExp(`\\b(${MON})\\s+(\\d{1,2})\\s+(20\\d{2})\\b`),
+  new RegExp(`\\b(${MON})\\s+(\\d{2})(20\\d{2})\\b`),
+  new RegExp(`\\b(\\d{2})\\s*(${MON})\\s*(20\\d{2})\\b`),
+  /\b(\d{2})(\d{2})(20\d{2})\b/,
 ];
 
 function pad(n: string | number) {
@@ -58,42 +57,24 @@ function extractDateFromText(text: string): string | null {
   for (let i = 0; i < DATE_PATTERNS.length; i++) {
     const m = norm.match(DATE_PATTERNS[i]);
     if (!m) continue;
-
     switch (i) {
-      case 0: // YYYY-MM-DD
-        return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
-      case 1: { // DD-MM-YYYY or MM-DD-YYYY (ambiguous → use bounds, else assume DD/MM)
-        const a = Number(m[1]);
-        const b = Number(m[2]);
+      case 0: return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+      case 1: {
+        const a = Number(m[1]); const b = Number(m[2]);
         let day: number, month: number;
-        if (a > 12)      { day = a; month = b; }
+        if (a > 12) { day = a; month = b; }
         else if (b > 12) { month = a; day = b; }
-        else             { day = a; month = b; } // ambiguous; prefer DD/MM (non-US convention)
+        else { day = a; month = b; }
         if (month < 1 || month > 12 || day < 1 || day > 31) break;
         return `${m[3]}-${pad(month)}-${pad(day)}`;
       }
-      case 2: { // DD MON YYYY
-        const mon = MONTHS[m[2].toLowerCase()];
-        if (mon) return `${m[3]}-${mon}-${pad(m[1])}`;
-        break;
-      }
-      case 3: // MON DD YYYY
-      case 4: { // MON DDYYYY
-        const mon = MONTHS[m[1].toLowerCase()];
-        if (mon) return `${m[3]}-${mon}-${pad(m[2])}`;
-        break;
-      }
-      case 5: { // DDMONYYYY (squished)
-        const mon = MONTHS[m[2].toLowerCase()];
-        if (mon) return `${m[3]}-${mon}-${pad(m[1])}`;
-        break;
-      }
-      case 6: { // bare DDMMYYYY — only accept if it's a sane date
-        const day = Number(m[1]);
-        const month = Number(m[2]);
-        if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-          return `${m[3]}-${pad(month)}-${pad(day)}`;
-        }
+      case 2: { const mon = MONTHS[m[2].toLowerCase()]; if (mon) return `${m[3]}-${mon}-${pad(m[1])}`; break; }
+      case 3:
+      case 4: { const mon = MONTHS[m[1].toLowerCase()]; if (mon) return `${m[3]}-${mon}-${pad(m[2])}`; break; }
+      case 5: { const mon = MONTHS[m[2].toLowerCase()]; if (mon) return `${m[3]}-${mon}-${pad(m[1])}`; break; }
+      case 6: {
+        const day = Number(m[1]); const month = Number(m[2]);
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12) return `${m[3]}-${pad(month)}-${pad(day)}`;
         break;
       }
     }
@@ -101,32 +82,42 @@ function extractDateFromText(text: string): string | null {
   return null;
 }
 
-// Exposed for in-browser smoke tests (see scripts/test-ocr-dates.html).
 if (typeof window !== 'undefined') {
   (window as unknown as { __extractDateFromText?: typeof extractDateFromText }).__extractDateFromText =
     extractDateFromText;
 }
 
-export function AddItemModal({ open, onClose, onAdd }: Props) {
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props) {
   const toast = useToast();
   const settings = loadSettings();
+  const isEditing = !!editingItem;
+
   const [tab, setTab] = useState<Tab>('manual');
   const [name, setName] = useState('');
   const [category, setCategory] = useState<Category>(settings.defaultCategory);
+  const [location, setLocation] = useState<Location>('fridge');
   const [expiry, setExpiry] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
+  const [cost, setCost] = useState<string>('');
   const [barcode, setBarcode] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Barcode scanner state
+  // Recent barcodes for quick re-add
+  const [recentBarcodes, setRecentBarcodes] = useState<RecentBarcode[]>([]);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const stopFnRef = useRef<(() => void) | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Photo OCR + vision-classifier state
   const [ocrProgress, setOcrProgress] = useState<number | null>(null);
   const [ocrPreview, setOcrPreview] = useState<{ text: string; date: string | null } | null>(null);
   const [visionGuess, setVisionGuess] = useState<VisionGuess | null>(null);
@@ -136,16 +127,33 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
     if (!open) {
       stopCamera();
       reset();
+    } else if (editingItem) {
+      // Pre-fill form from item being edited
+      setTab('manual');
+      setName(editingItem.product_name);
+      setCategory(editingItem.category);
+      setLocation(editingItem.location);
+      setExpiry(editingItem.expiry_date);
+      setQuantity(editingItem.quantity);
+      setNotes(editingItem.notes ?? '');
+      setCost(editingItem.estimated_cost ? String(editingItem.estimated_cost) : '');
+      setBarcode(editingItem.barcode);
+      setImageUrl(editingItem.image_url);
+    } else {
+      // Fresh add — load recent barcodes for the quick-add section
+      api.listRecentBarcodes().then(setRecentBarcodes).catch(() => { /* ignore */ });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, editingItem]);
 
   function reset() {
     setName('');
     setCategory(settings.defaultCategory);
+    setLocation('fridge');
     setExpiry('');
     setQuantity(1);
     setNotes('');
+    setCost('');
     setBarcode(null);
     setImageUrl(null);
     setOcrProgress(null);
@@ -153,18 +161,18 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
     setVisionGuess(null);
     setClassifying(false);
     setCameraError(null);
+    setTab('manual');
   }
 
-  // Start the barcode camera when the barcode tab is opened.
   useEffect(() => {
-    if (!open || tab !== 'barcode') {
+    if (!open || tab !== 'barcode' || isEditing) {
       stopCamera();
       return;
     }
     startCamera();
     return () => stopCamera();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tab]);
+  }, [open, tab, isEditing]);
 
   async function startCamera() {
     setCameraError(null);
@@ -194,11 +202,7 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
   }
 
   function stopCamera() {
-    try {
-      stopFnRef.current?.();
-    } catch {
-      /* ignore */
-    }
+    try { stopFnRef.current?.(); } catch { /* ignore */ }
     stopFnRef.current = null;
     readerRef.current = null;
   }
@@ -213,7 +217,7 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
       if (data.image_url) setImageUrl(data.image_url);
       toast('Product found — enter expiry date', 'success');
       setTab('manual');
-    } catch (err) {
+    } catch {
       toast('Not in any database — fill in the name manually', 'info');
       setBarcode(code);
       setTab('manual');
@@ -222,29 +226,28 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
     }
   }
 
+  function quickAddFromRecent(b: RecentBarcode) {
+    setName(b.product_name);
+    setCategory(b.category as Category);
+    setBarcode(b.barcode);
+    if (b.image_url) setImageUrl(b.image_url);
+    setTab('manual');
+    toast('Pre-filled — set the new expiry date', 'info');
+  }
+
   async function handlePhotoUpload(file: File) {
     setOcrProgress(0);
     setOcrPreview(null);
     setVisionGuess(null);
     setClassifying(true);
 
-    // Run OCR (date extraction) and on-device image classification in parallel.
-    // Tesseract reads printed dates; MobileNet identifies the food/object.
     const ocrTask = Tesseract.recognize(file, 'eng', {
       logger: (m) => {
-        if (m.status === 'recognizing text') {
-          setOcrProgress(Math.round(m.progress * 100));
-        }
+        if (m.status === 'recognizing text') setOcrProgress(Math.round(m.progress * 100));
       },
-    }).then(({ data }) => data).catch((err) => {
-      console.warn('OCR failed', err);
-      return null;
-    });
+    }).then(({ data }) => data).catch(() => null);
 
-    const visionTask = classifyImage(file).catch((err) => {
-      console.warn('Vision classify failed', err);
-      return null;
-    });
+    const visionTask = classifyImage(file).catch(() => null);
 
     const [ocrData, vision] = await Promise.all([ocrTask, visionTask]);
     setOcrProgress(null);
@@ -277,8 +280,6 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
 
     if (date) setExpiry(date);
 
-    // Prefer the OCR product name when the label is readable (it's exact for
-    // packaged goods). Fall back to MobileNet's classification for bare items.
     if (ocrNameGuess) {
       setName(ocrNameGuess);
     } else if (vision) {
@@ -286,21 +287,11 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
       setCategory((vision.category as Category) ?? 'other');
     }
 
-    // Toast that reflects what actually happened.
-    if (date && (ocrNameGuess || vision)) {
-      toast('Date + item detected — review and save', 'success');
-    } else if (date) {
-      toast('Date detected — enter the product name', 'info');
-    } else if (vision && !hasUsableText) {
-      toast(`Looks like ${vision.label} — please enter the expiry date`, 'info');
-    } else if (hasUsableText) {
-      toast('Found text but no date — please enter expiry manually', 'info');
-    } else {
-      toast(
-        'Could not read this photo. Try a clearer label shot, scan a barcode, or enter manually.',
-        'error'
-      );
-    }
+    if (date && (ocrNameGuess || vision)) toast('Date + item detected — review and save', 'success');
+    else if (date) toast('Date detected — enter the product name', 'info');
+    else if (vision && !hasUsableText) toast(`Looks like ${vision.label} — please enter the expiry date`, 'info');
+    else if (hasUsableText) toast('Found text but no date — please enter expiry manually', 'info');
+    else toast('Could not read this photo. Try a clearer label shot, scan a barcode, or enter manually.', 'error');
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -311,7 +302,7 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
     }
     setBusy(true);
     try {
-      await onAdd({
+      const payload = {
         product_name: name.trim(),
         category,
         expiry_date: expiry,
@@ -319,11 +310,19 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
         notes: notes.trim() || null,
         barcode,
         image_url: imageUrl,
-      });
-      toast('Item added', 'success');
+        location,
+        estimated_cost: cost.trim() ? Number(cost.replace(/[^\d]/g, '')) : null,
+      };
+      if (isEditing && editingItem && onUpdate) {
+        await onUpdate(editingItem.id, payload);
+        toast('Item updated', 'success');
+      } else {
+        await onAdd(payload);
+        toast('Item added', 'success');
+      }
       onClose();
     } catch (err) {
-      toast((err as Error).message || 'Failed to add item', 'error');
+      toast((err as Error).message || 'Failed to save', 'error');
     } finally {
       setBusy(false);
     }
@@ -338,36 +337,38 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-[#1a1a1a] border-b border-[#2a2a2a] flex items-center justify-between px-5 py-4 z-10">
-          <h2 className="font-semibold text-lg text-white">Add item</h2>
+          <h2 className="font-semibold text-lg text-white">{isEditing ? 'Edit item' : 'Add item'}</h2>
           <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-[#2a2a2a] text-gray-400">
             <X size={20} />
           </button>
         </div>
 
-        <div className="px-5 pt-3">
-          <div className="grid grid-cols-3 gap-1.5 bg-[#242424] p-1 rounded-xl text-sm">
-            {([
-              ['barcode', Barcode, 'Barcode'],
-              ['photo', Camera, 'Photo'],
-              ['manual', Pencil, 'Manual'],
-            ] as const).map(([t, Icon, label]) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={
-                  'flex items-center justify-center gap-1.5 py-2 rounded-lg transition ' +
-                  (tab === t ? 'bg-[#333] shadow-sm font-medium text-white' : 'text-gray-500')
-                }
-              >
-                <Icon size={15} />
-                {label}
-              </button>
-            ))}
+        {!isEditing && (
+          <div className="px-5 pt-3">
+            <div className="grid grid-cols-3 gap-1.5 bg-[#242424] p-1 rounded-xl text-sm">
+              {([
+                ['barcode', Barcode, 'Barcode'],
+                ['photo', Camera, 'Photo'],
+                ['manual', Pencil, 'Manual'],
+              ] as const).map(([t, Icon, label]) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={
+                    'flex items-center justify-center gap-1.5 py-2 rounded-lg transition ' +
+                    (tab === t ? 'bg-[#333] shadow-sm font-medium text-white' : 'text-gray-500')
+                  }
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="p-5 space-y-4">
-          {tab === 'barcode' && (
+          {!isEditing && tab === 'barcode' && (
             <div className="space-y-3">
               <div className="aspect-[4/3] rounded-xl overflow-hidden bg-[#0d0d0d] relative">
                 <video ref={videoRef} className="w-full h-full object-cover" />
@@ -380,12 +381,43 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
                 </div>
               )}
               <p className="text-xs text-gray-600 text-center">
-                Point the camera at a product barcode. We'll auto-fill the name from Open Food Facts.
+                Point the camera at a product barcode. We try 3 databases — the first match wins.
               </p>
+
+              {/* Recently scanned — tap to re-add */}
+              {recentBarcodes.length > 0 && (
+                <div className="pt-2 border-t border-[#2a2a2a]">
+                  <div className="flex items-center gap-1.5 mb-2 text-xs text-gray-500">
+                    <History size={13} /> Recently scanned — tap to re-add
+                  </div>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {recentBarcodes.slice(0, 5).map((b) => (
+                      <button
+                        key={b.barcode}
+                        type="button"
+                        onClick={() => quickAddFromRecent(b)}
+                        className="w-full flex items-center gap-2 bg-[#242424] hover:bg-[#2a2a2a] rounded-lg p-2 text-left transition"
+                      >
+                        {b.image_url ? (
+                          <img src={b.image_url} alt="" className="w-9 h-9 rounded-md object-contain bg-white shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-md bg-black overflow-hidden shrink-0">
+                            <img src={CATEGORY_META[b.category as Category].icon} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-gray-200 font-medium truncate">{b.product_name}</div>
+                          <div className="text-[10px] text-gray-600 font-mono truncate">{b.barcode}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {tab === 'photo' && (
+          {!isEditing && tab === 'photo' && (
             <div className="space-y-3">
               <label className="block border-2 border-dashed border-[#333] rounded-xl p-6 text-center cursor-pointer hover:border-fresh hover:bg-green-900/20 transition">
                 <input
@@ -406,9 +438,7 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
               {(ocrProgress !== null || classifying) && (
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <Loader2 size={16} className="animate-spin" />
-                  {ocrProgress !== null
-                    ? `Reading text… ${ocrProgress}%`
-                    : 'Identifying item…'}
+                  {ocrProgress !== null ? `Reading text… ${ocrProgress}%` : 'Identifying item…'}
                 </div>
               )}
               {visionGuess && (
@@ -430,14 +460,11 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
                   <div className="text-gray-600 line-clamp-3 italic">"{ocrPreview.text.replace(/\s+/g, ' ').trim()}"</div>
                 </div>
               )}
-              <p className="text-xs text-gray-600 text-center">
-                Review the fields below before saving.
-              </p>
+              <p className="text-xs text-gray-600 text-center">Review the fields below before saving.</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Barcode chip — shown when barcode scanned but no image found */}
             {barcode && !imageUrl && (
               <div className="flex items-center gap-2 bg-[#242424] rounded-xl px-3 py-2">
                 <Barcode size={15} className="text-gray-500 shrink-0" />
@@ -446,7 +473,6 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
               </div>
             )}
 
-            {/* Product image — shown after a successful barcode scan */}
             {imageUrl && (
               <div className="flex items-center gap-3 bg-[#242424] rounded-2xl p-3">
                 <img
@@ -498,7 +524,33 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
                     <div className="w-9 h-9 rounded-xl overflow-hidden bg-black shadow-sm">
                       <img src={CATEGORY_META[c].icon} alt={CATEGORY_META[c].label} className="w-full h-full object-cover" />
                     </div>
-                    <span className="text-[10px] text-gray-600">{CATEGORY_META[c].label}</span>
+                    <span className="text-[10px] text-gray-400">{CATEGORY_META[c].label}</span>
+                  </button>
+                ))}
+              </div>
+              {/* Storage tip for chosen category */}
+              <div className="mt-2 text-[11px] text-gray-500 italic bg-[#242424] rounded-lg px-3 py-2 leading-snug">
+                💡 {STORAGE_TIPS[category]}
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Storage location</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {LOCATIONS.map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setLocation(l)}
+                    className={
+                      'py-2 rounded-lg text-sm border transition flex items-center justify-center gap-1.5 ' +
+                      (location === l
+                        ? 'border-fresh bg-green-900/40 text-fresh'
+                        : 'border-[#333] text-gray-400')
+                    }
+                  >
+                    <span>{LOCATION_META[l].emoji}</span>
+                    <span>{LOCATION_META[l].label}</span>
                   </button>
                 ))}
               </div>
@@ -510,11 +562,20 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
                 <input
                   type="date"
                   className="input"
-                  min={todayISO()}
+                  min={isEditing ? undefined : todayISO()}
                   value={expiry}
                   onChange={(e) => setExpiry(e.target.value)}
                   required
                 />
+                {!isEditing && expiry === '' && (
+                  <button
+                    type="button"
+                    onClick={() => setExpiry(addDays(todayISO(), 7))}
+                    className="mt-1 text-[10px] text-fresh/70 hover:text-fresh transition"
+                  >
+                    + Default to 7 days from today
+                  </button>
+                )}
               </div>
               <div>
                 <label className="label">Quantity</label>
@@ -529,19 +590,31 @@ export function AddItemModal({ open, onClose, onAdd }: Props) {
               </div>
             </div>
 
-            <div>
-              <label className="label">Notes (optional)</label>
-              <input
-                className="input"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. opened, in freezer"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Cost (Rp) <span className="text-gray-600 font-normal">optional</span></label>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  placeholder="15000"
+                  value={cost}
+                  onChange={(e) => setCost(e.target.value.replace(/[^\d]/g, ''))}
+                />
+              </div>
+              <div>
+                <label className="label">Notes <span className="text-gray-600 font-normal">optional</span></label>
+                <input
+                  className="input"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="opened, etc."
+                />
+              </div>
             </div>
 
             <button type="submit" disabled={busy} className="btn-primary w-full">
               {busy ? <Loader2 size={18} className="animate-spin" /> : null}
-              Add to fridge
+              {isEditing ? 'Save changes' : 'Add to fridge'}
             </button>
           </form>
         </div>
