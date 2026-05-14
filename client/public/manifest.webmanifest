@@ -12,22 +12,16 @@
   "categories": ["food", "lifestyle", "productivity", "utilities"],
   "icons": [
     {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
+      "src": "/icons/fridge.png",
+      "sizes": "any",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/fridge.png",
-      "sizes": "1024x1024",
+      "sizes": "any",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -36,14 +30,14 @@
       "short_name": "Add",
       "description": "Scan a barcode, photo, or type to add an item",
       "url": "/?action=add",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/fridge.png", "sizes": "any" }]
     },
     {
       "name": "View streak",
       "short_name": "Streak",
       "description": "See your anti-waste streak",
       "url": "/streak",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/fridge.png", "sizes": "any" }]
     }
   ]
 }
