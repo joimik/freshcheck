@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ArrowUpDown, WifiOff } from 'lucide-react';
+import { Search, ArrowUpDown, WifiOff, Crown } from 'lucide-react';
+import { usePremium } from '../utils/premium';
 import { ItemCard } from '../components/ItemCard';
 import { SummaryCards } from '../components/SummaryCards';
 import { EmptyState } from '../components/EmptyState';
@@ -24,6 +25,7 @@ type Props = {
 
 export function Home({ items, loading, onDelete, onUse, onUseOne, onEdit, onAdd }: Props) {
   const toast = useToast();
+  const premium = usePremium();
   const [location, setLocation] = useState<Location | 'all'>('all');
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState<Category | 'all'>('all');
@@ -105,7 +107,12 @@ export function Home({ items, loading, onDelete, onUse, onUseOne, onEdit, onAdd 
         </div>
         <div className="flex-1">
           <div className="text-xs uppercase tracking-wider text-gray-500">Your kitchen</div>
-          <h1 className="text-2xl font-bold text-white">FreshCheck</h1>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-1.5">
+            FreshCheck
+            {premium.isPremium && (
+              <Crown size={16} className="text-amber-400" aria-label="Premium" />
+            )}
+          </h1>
         </div>
       </header>
 

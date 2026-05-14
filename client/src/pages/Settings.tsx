@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Bell, Bookmark, Download, Trash2, BookOpen } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Bell, Bookmark, Download, Trash2, BookOpen, Crown, ChevronRight, Lock } from 'lucide-react';
 import type { Category, Item } from '../types';
 import { CATEGORY_META } from '../types';
 import { loadSettings, saveSettings, type Settings as S } from '../utils/settings';
 import { requestNotificationPermission } from '../utils/notifications';
 import { useToast } from '../hooks/useToast';
+import { usePremium } from '../utils/premium';
 
 type Props = {
   items: Item[];
@@ -14,6 +16,7 @@ type Props = {
 export function Settings({ items, onClearAll }: Props) {
   const toast = useToast();
   const [settings, setSettings] = useState<S>(loadSettings());
+  const premium = usePremium();
 
   function update<K extends keyof S>(key: K, value: S[K]) {
     const next = { ...settings, [key]: value };
@@ -34,11 +37,15 @@ export function Settings({ items, onClearAll }: Props) {
   }
 
   function exportCsv() {
+    if (!premium.isPremium) {
+      toast('CSV export is a Premium feature', 'info');
+      return;
+    }
     if (!items.length) {
       toast('Nothing to export yet', 'info');
       return;
     }
-    const header = ['id', 'product_name', 'category', 'expiry_date', 'quantity', 'notes', 'added_date', 'status'];
+    const header = ['id', 'product_name', 'category', 'expiry_date', 'quantity', 'notes', 'added_date', 'status', 'location', 'estimated_cost'];
     const rows = items.map((i) =>
       header
         .map((h) => {
@@ -72,6 +79,42 @@ export function Settings({ items, onClearAll }: Props) {
         <div className="text-xs uppercase tracking-wider text-gray-500">Preferences</div>
         <h1 className="text-2xl font-bold text-white">Settings</h1>
       </header>
+
+      {/* Premium card — different look depending on tier */}
+      {premium.isPremium ? (
+        <Link
+          to="/premium"
+          className="card flex items-center gap-3 border border-amber-500/40 bg-gradient-to-br from-amber-900/20 to-[#1a1a1a]"
+        >
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
+            <Crown size={20} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-white flex items-center gap-1.5">
+              FreshCheck Premium
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full font-medium uppercase">
+                {premium.tier}
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">Manage your subscription</div>
+          </div>
+          <ChevronRight size={18} className="text-gray-500 shrink-0" />
+        </Link>
+      ) : (
+        <Link
+          to="/premium"
+          className="card flex items-center gap-3 border border-amber-500/40 bg-gradient-to-br from-amber-900/20 to-[#1a1a1a] hover:from-amber-900/30 transition"
+        >
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
+            <Crown size={20} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-white">Upgrade to Premium</div>
+            <div className="text-xs text-gray-400 mt-0.5">Unlock CSV export, themes, and more</div>
+          </div>
+          <ChevronRight size={18} className="text-amber-400 shrink-0" />
+        </Link>
+      )}
 
       <section className="card">
         <div className="flex items-center justify-between">
@@ -151,8 +194,17 @@ export function Settings({ items, onClearAll }: Props) {
         >
           <BookOpen size={18} /> Replay intro tutorial
         </button>
-        <button onClick={exportCsv} className="btn-ghost w-full justify-start">
-          <Download size={18} /> Export inventory as CSV
+        <button
+          onClick={exportCsv}
+          className={'btn-ghost w-full justify-start ' + (premium.isPremium ? '' : 'opacity-75')}
+        >
+          {premium.isPremium ? <Download size={18} /> : <Lock size={16} />}
+          Export inventory as CSV
+          {!premium.isPremium && (
+            <span className="ml-auto text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full font-medium uppercase">
+              Premium
+            </span>
+          )}
         </button>
         <button onClick={clearAll} className="btn-ghost w-full justify-start text-danger hover:bg-red-900/30">
           <Trash2 size={18} /> Clear all data
@@ -160,7 +212,7 @@ export function Settings({ items, onClearAll }: Props) {
       </section>
 
       <p className="text-center text-xs text-gray-600 pt-2">
-        FreshCheck v1.0 — no API keys required.
+        FreshCheck v1.1 — made with 🥬 by Kenzo
       </p>
     </div>
   );

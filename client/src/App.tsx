@@ -8,6 +8,7 @@ import { Home } from './pages/Home';
 import { Streak } from './pages/Streak';
 import { Stats } from './pages/Stats';
 import { Settings } from './pages/Settings';
+import { Premium } from './pages/Premium';
 import { useItems } from './hooks/useItems';
 import { api } from './utils/api';
 import { registerServiceWorker } from './utils/notifications';
@@ -68,6 +69,7 @@ function Shell() {
           <Route path="/streak" element={<Streak />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/settings" element={<Settings items={items} onClearAll={clearAll} />} />
+          <Route path="/premium" element={<Premium />} />
         </Routes>
       </main>
       <BottomNav onAddClick={openAdd} />
