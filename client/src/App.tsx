@@ -15,7 +15,7 @@ import { registerServiceWorker } from './utils/notifications';
 import type { Item } from './types';
 
 function Shell() {
-  const { items, loading, add, update, remove, useOne, markUsed, refresh } = useItems();
+  const { items, loading, add, update, remove, useOne, refresh } = useItems();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(!hasSeenOnboarding());
@@ -59,7 +59,6 @@ function Shell() {
                 items={items}
                 loading={loading}
                 onDelete={remove}
-                onUse={markUsed}
                 onUseOne={useOne}
                 onEdit={openEdit}
                 onAdd={openAdd}

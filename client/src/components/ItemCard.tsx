@@ -7,14 +7,13 @@ import { daysLabel, daysUntil, freshnessTier, tierStyles } from '../utils/dates'
 type Props = {
   item: Item;
   onDelete: (id: number) => void;
-  onUse: (id: number) => void;     // fully consume
-  onUseOne: (id: number) => void;  // decrement quantity by 1
+  onUseOne: (id: number) => void;  // decrement quantity by 1, or mark used if quantity=1
   onEdit: (item: Item) => void;
 };
 
 const SWIPE_THRESHOLD = 80; // pixels to commit a swipe action
 
-export function ItemCard({ item, onDelete, onUse, onUseOne, onEdit }: Props) {
+export function ItemCard({ item, onDelete, onUseOne, onEdit }: Props) {
   const days = daysUntil(item.expiry_date);
   const tier = freshnessTier(days);
   const styles = tierStyles(tier);

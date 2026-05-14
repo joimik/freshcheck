@@ -2,19 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#0d0d0d" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FreshCheck" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Android PWA -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="FreshCheck" />
+
+    <!-- SEO + social -->
+    <meta
+      name="description"
+      content="Track every item in your fridge, freezer, and pantry. Never waste food again. Free, open-source, no ads."
+    />
+    <meta property="og:title" content="FreshCheck — never waste food again" />
+    <meta property="og:description" content="Scan, photo, or type. Track expiry dates. Build a no-waste streak." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icons/fridge.png" />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/fridge.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
     <title>FreshCheck — never waste food again</title>
   </head>
   <body>

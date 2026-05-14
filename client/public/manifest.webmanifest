@@ -1,19 +1,43 @@
 {
-  "name": "FreshCheck",
+  "name": "FreshCheck — Expiry tracker & anti-waste",
   "short_name": "FreshCheck",
-  "description": "Expiry date scanner and fridge inventory manager.",
+  "description": "Track every item in your fridge, freezer & pantry. Never waste food again. Scan barcodes, photos, or type — get warned before things expire.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#22C55E",
-  "background_color": "#FAFAFA",
+  "theme_color": "#0d0d0d",
+  "background_color": "#0d0d0d",
+  "lang": "en",
+  "categories": ["food", "lifestyle", "productivity", "utilities"],
   "icons": [
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/fridge.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add an item",
+      "short_name": "Add",
+      "description": "Scan a barcode, photo, or type to add an item",
+      "url": "/?action=add",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "View streak",
+      "short_name": "Streak",
+      "description": "See your anti-waste streak",
+      "url": "/streak",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
     }
   ]
 }

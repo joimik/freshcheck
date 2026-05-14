@@ -7,8 +7,10 @@
 //   with cache fallback so the app still loads when offline.
 // - Everything else: pass through to network.
 
-const SHELL_CACHE = 'freshcheck-shell-v1';
-const RUNTIME_CACHE = 'freshcheck-runtime-v1';
+// Bump these whenever you ship significant changes — forces returning users
+// to drop their stale cached assets and pull the new build.
+const SHELL_CACHE = 'freshcheck-shell-v3';
+const RUNTIME_CACHE = 'freshcheck-runtime-v3';
 const SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {

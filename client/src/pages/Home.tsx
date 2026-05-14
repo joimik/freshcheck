@@ -17,13 +17,12 @@ type Props = {
   items: Item[];
   loading: boolean;
   onDelete: (id: number) => Promise<void>;
-  onUse: (id: number) => Promise<void>;
   onUseOne: (id: number) => Promise<void>;
   onEdit: (item: Item) => void;
   onAdd: () => void;
 };
 
-export function Home({ items, loading, onDelete, onUse, onUseOne, onEdit, onAdd }: Props) {
+export function Home({ items, loading, onDelete, onUseOne, onEdit, onAdd }: Props) {
   const toast = useToast();
   const premium = usePremium();
   const [location, setLocation] = useState<Location | 'all'>('all');
@@ -119,7 +118,7 @@ export function Home({ items, loading, onDelete, onUse, onUseOne, onEdit, onAdd 
       {!online && (
         <div className="flex items-center gap-2 bg-amber-900/30 border border-amber-900/50 rounded-xl px-3 py-2 text-xs text-warn">
           <WifiOff size={14} />
-          You're offline — saved items still work, but barcode lookup and recipes need internet.
+          You're offline — your items still work, but barcode lookup needs internet.
         </div>
       )}
 
@@ -230,7 +229,6 @@ export function Home({ items, loading, onDelete, onUse, onUseOne, onEdit, onAdd 
               key={i.id}
               item={i}
               onDelete={safeDelete}
-              onUse={onUse}
               onUseOne={safeUseOne}
               onEdit={onEdit}
             />
