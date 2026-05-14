@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #0d0d0d;
+  color: #f0f0f0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .card {
+    @apply bg-[#1a1a1a] rounded-2xl p-4 border border-[#2a2a2a];
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-fresh text-white font-medium active:scale-[0.98] transition disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#242424] text-gray-200 font-medium active:scale-[0.98] transition;
+  }
+  .input {
+    @apply w-full px-3.5 py-2.5 rounded-xl border border-[#333] bg-[#242424] text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-fresh/30 focus:border-fresh;
+  }
+  .label {
+    @apply text-sm font-medium text-gray-400 mb-1.5 block;
+  }
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #1a1a1a 0px, #2a2a2a 200px, #1a1a1a 400px);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s linear infinite;
+}

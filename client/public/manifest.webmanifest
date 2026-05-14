@@ -1,0 +1,19 @@
+{
+  "name": "FreshCheck",
+  "short_name": "FreshCheck",
+  "description": "Expiry date scanner and fridge inventory manager.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#22C55E",
+  "background_color": "#FAFAFA",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+import type { Item, NewItem, Recipe, Stats } from '../types';
+import {
+  addItem,
+  clearAllItems,
+  deleteItem,
+  getStats,
+  listActiveItems,
+  updateItem,
+} from './db';
+
+// Open Food Facts category → our internal category bucket.
+const CATEGORY_MAP: Record<string, string> = {
+  'en:meats': 'meat',
+  'en:dairies': 'dairy',
+  'en:milks': 'dairy',
+  'en:cheeses': 'dairy',
+  'en:yogurts': 'dairy',
+  'en:fruits': 'produce',
+  'en:vegetables': 'produce',
+  'en:fruits-and-vegetables-based-foods': 'produce',
+  'en:condiments': 'condiments',
+  'en:sauces': 'condiments',
+  'en:canned-foods': 'canned',
+  'en:snacks': 'snacks',
+  'en:sweet-snacks': 'snacks',
+  'en:salty-snacks': 'snacks',
+  'en:medicines': 'medicine',
+};
+
+function inferCategory(tags: string[] | undefined): string {
+  if (!tags?.length) return 'other';
+  for (const tag of tags) {
+    if (CATEGORY_MAP[tag]) return CATEGORY_MAP[tag];
+  }
+  return 'other';
+}
+
+// Word stemming for matching expiring items against TheMealDB ingredient list.
+function ingredientToken(name: string): string {
+  return name
+    .toLowerCase()
+    .split(/[\s,]+/)[0]
+    .replace(/s$/, ''); // strip trailing plural — TheMealDB uses singular forms
+}
+
+type OpenFoodFactsResponse = {
+  status: number;
+  product?: {
+    product_name?: string;
+    brands?: string;
+    categories_tags?: string[];
+    image_front_url?: string;
+  };
+};
+
+type Meal = { idMeal: string; strMeal: string; strMealThumb?: string };
+type MealDetails = Meal & {
+  strInstructions?: string;
+  [key: `strIngredient${number}`]: string | undefined;
+};
+
+function splitSteps(instructions: string | undefined): string[] {
+  if (!instructions) return [];
+  return instructions
+    .split(/\r?\n+|(?<=\.)\s+(?=[A-Z])/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function extractIngredients(meal: MealDetails): string[] {
+  const out: string[] = [];
+  for (let i = 1; i <= 20; i++) {
+    const ing = meal[`strIngredient${i}` as const];
+    if (ing && ing.trim()) out.push(ing.trim().toLowerCase());
+  }
+  return out;
+}
+
+function estimatePrepTime(instructions: string | undefined): string {
+  if (!instructions) return '20 min';
+  const minMatch = instructions.match(/(\d+)\s*(?:min|minute)/i);
+  if (minMatch) return `${minMatch[1]} min`;
+  const hourMatch = instructions.match(/(\d+)\s*(?:hr|hour)/i);
+  if (hourMatch) return `${hourMatch[1]} hr`;
+  return '20 min';
+}
+
+export const api = {
+  listItems: (): Promise<Item[]> => listActiveItems(),
+  addItem: (item: NewItem): Promise<Item> => addItem(item),
+  updateItem: (id: number, patch: Partial<Item>): Promise<Item> => updateItem(id, patch),
+  deleteItem: (id: number): Promise<{ ok: true }> =>
+    deleteItem(id).then(() => ({ ok: true })),
+  clearAll: (): Promise<void> => clearAllItems(),
+  stats: (): Promise<Stats> => getStats(),
+
+  async scanBarcode(barcode: string) {
+    const url = `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(
+      barcode
+    )}.json`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Open Food Facts request failed');
+    const data = (await r.json()) as OpenFoodFactsResponse;
+    if (data.status !== 1 || !data.product) {
+      throw new Error('Product not found');
+    }
+    return {
+      product_name:
+        data.product.product_name || data.product.brands || 'Unknown product',
+      category: inferCategory(data.product.categories_tags),
+      image_url: data.product.image_front_url ?? null,
+    };
+  },
+
+  async generateRecipes(ingredients: string[]): Promise<{ recipes: Recipe[] }> {
+    if (!ingredients.length) return { recipes: [] };
+
+    const tokens = [...new Set(ingredients.map(ingredientToken))].filter(Boolean);
+
+    const lookups = await Promise.all(
+      tokens.map(async (ing) => {
+        const url = `https://www.themealdb.com/api/json/v1/1/filter.php?i=${encodeURIComponent(ing)}`;
+        const r = await fetch(url);
+        if (!r.ok) return { ing, meals: [] as Meal[] };
+        const data = (await r.json()) as { meals: Meal[] | null };
+        return { ing, meals: data.meals ?? [] };
+      })
+    );
+
+    const scoreMap = new Map<string, { meal: Meal; matched: Set<string> }>();
+    for (const { ing, meals } of lookups) {
+      for (const m of meals) {
+        const entry = scoreMap.get(m.idMeal) ?? { meal: m, matched: new Set() };
+        entry.matched.add(ing);
+        scoreMap.set(m.idMeal, entry);
+      }
+    }
+    const ranked = [...scoreMap.values()]
+      .sort((a, b) => b.matched.size - a.matched.size)
+      .slice(0, 3);
+    if (!ranked.length) return { recipes: [] };
+
+    const details = await Promise.all(
+      ranked.map(async ({ meal, matched }) => {
+        const url = `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${meal.idMeal}`;
+        const r = await fetch(url);
+        const data = (await r.json()) as { meals: MealDetails[] | null };
+        const full = data.meals?.[0];
+        if (!full) return null;
+        return {
+          name: full.strMeal,
+          prep_time: estimatePrepTime(full.strInstructions),
+          steps: splitSteps(full.strInstructions),
+          uses_ingredients: [...matched],
+          all_ingredients: extractIngredients(full),
+          thumbnail: full.strMealThumb ?? null,
+          source: `https://www.themealdb.com/meal/${full.idMeal}`,
+        } as Recipe;
+      })
+    );
+
+    return { recipes: details.filter((r): r is Recipe => r !== null) };
+  },
+};

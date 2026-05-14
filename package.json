@@ -1,0 +1,13 @@
+{
+  "name": "freshcheck",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FreshCheck — expiry date scanner and fridge inventory manager (100% on-device, no backend)",
+  "scripts": {
+    "dev": "npm --prefix client run dev",
+    "dev:lan": "npm --prefix client run dev:lan",
+    "build": "npm --prefix client run build",
+    "preview": "npm --prefix client run preview",
+    "install:all": "npm install && npm --prefix client install"
+  }
+}
