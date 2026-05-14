@@ -251,18 +251,18 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
 
     const [ocrData, vision] = await Promise.all([ocrTask, visionTask]);
     setOcrProgress(null);
-    setClassifying(false);
     setVisionGuess(vision);
 
     let date: string | null = null;
     let hasUsableText = false;
     let ocrNameGuess: string | null = null;
+    let ocrSearchQuery: string | null = null;
 
     if (ocrData) {
       const text = ocrData.text;
       date = extractDateFromText(text);
       const confidentWords = (ocrData.words ?? []).filter(
-        (w) => w.confidence >= 70 && /^[A-Za-z]{3,}$/.test(w.text)
+        (w) => w.confidence >= 65 && /^[A-Za-z]{3,}$/.test(w.text)
       );
       hasUsableText = confidentWords.length >= 2;
       setOcrPreview({ text: text.slice(0, 240), date });
@@ -275,23 +275,65 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
         if (candidates[0]) {
           ocrNameGuess = candidates[0].replace(/[^A-Za-z0-9 \-']/g, '').slice(0, 60);
         }
+        // Build a search query from the top 4 most confident long words —
+        // good signal for hitting the product database
+        ocrSearchQuery = confidentWords
+          .sort((a, b) => b.confidence - a.confidence)
+          .slice(0, 4)
+          .map((w) => w.text)
+          .join(' ');
       }
     }
 
     if (date) setExpiry(date);
 
-    if (ocrNameGuess) {
+    // 🔑 KILLER FEATURE: search product databases using the OCR text
+    // If we find a real product, that overrides MobileNet's generic label
+    let databaseMatch: { product_name: string; category: Category; image_url: string | null } | null = null;
+    if (ocrSearchQuery) {
+      try {
+        const found = await api.searchByText(ocrSearchQuery);
+        if (found) {
+          databaseMatch = {
+            product_name: found.product_name,
+            category: found.category as Category,
+            image_url: found.image_url,
+          };
+        }
+      } catch {
+        /* ignore — fall back to MobileNet/OCR-only */
+      }
+    }
+    setClassifying(false);
+
+    if (databaseMatch) {
+      // Strongest signal: real product from a real database
+      setName(databaseMatch.product_name);
+      setCategory(databaseMatch.category);
+      if (databaseMatch.image_url) setImageUrl(databaseMatch.image_url);
+    } else if (ocrNameGuess) {
       setName(ocrNameGuess);
     } else if (vision) {
       setName(vision.label);
       setCategory((vision.category as Category) ?? 'other');
     }
 
-    if (date && (ocrNameGuess || vision)) toast('Date + item detected — review and save', 'success');
-    else if (date) toast('Date detected — enter the product name', 'info');
-    else if (vision && !hasUsableText) toast(`Looks like ${vision.label} — please enter the expiry date`, 'info');
-    else if (hasUsableText) toast('Found text but no date — please enter expiry manually', 'info');
-    else toast('Could not read this photo. Try a clearer label shot, scan a barcode, or enter manually.', 'error');
+    // Smarter toast messages
+    if (databaseMatch && date) {
+      toast(`Found in database: ${databaseMatch.product_name} ✨`, 'success');
+    } else if (databaseMatch) {
+      toast(`Found ${databaseMatch.product_name} — set expiry date`, 'success');
+    } else if (date && (ocrNameGuess || vision)) {
+      toast('Date + item detected — review and save', 'success');
+    } else if (date) {
+      toast('Date detected — enter the product name', 'info');
+    } else if (vision && !hasUsableText) {
+      toast(`Looks like ${vision.label} — please enter the expiry date`, 'info');
+    } else if (hasUsableText) {
+      toast('Found text but no date — please enter expiry manually', 'info');
+    } else {
+      toast('Could not read this photo. Try a clearer label shot, scan a barcode, or enter manually.', 'error');
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -381,7 +423,7 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
                 </div>
               )}
               <p className="text-xs text-gray-600 text-center">
-                Point the camera at a product barcode. We try 3 databases — the first match wins.
+                Point the camera at a product barcode. We try <span className="font-medium">5 databases</span> in parallel — the first match wins.
               </p>
 
               {/* Recently scanned — tap to re-add */}
@@ -432,13 +474,15 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
                 <Camera size={28} className="mx-auto text-gray-500 mb-2" />
                 <div className="text-sm font-medium text-gray-300">Tap to upload a photo</div>
                 <div className="text-xs text-gray-600 mt-1">
-                  We'll read the <span className="font-medium">expiry date</span> off the label and try to recognise the item. Runs entirely on your device.
+                  We'll read the <span className="font-medium">expiry date</span>, recognise the item, and search <span className="font-medium">3 product databases</span> by the text on the label.
                 </div>
               </label>
               {(ocrProgress !== null || classifying) && (
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <Loader2 size={16} className="animate-spin" />
-                  {ocrProgress !== null ? `Reading text… ${ocrProgress}%` : 'Identifying item…'}
+                  {ocrProgress !== null
+                    ? `Reading text… ${ocrProgress}%`
+                    : 'Identifying item & searching databases…'}
                 </div>
               )}
               {visionGuess && (

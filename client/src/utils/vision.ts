@@ -34,15 +34,24 @@ export type VisionGuess = {
 // Map common ImageNet labels back to FreshCheck categories. Anything not
 // listed falls through to "other" — that's fine, user can override.
 const LABEL_TO_CATEGORY: { match: RegExp; category: string }[] = [
-  { match: /\b(banana|orange|lemon|lime|apple|granny smith|strawberry|pineapple|pomegranate|fig|pear|peach|grape|melon|watermelon|kiwi|mango|papaya|persimmon|raspberry|blackberry|blueberry)\b/i, category: 'produce' },
-  { match: /\b(broccoli|cauliflower|cucumber|zucchini|eggplant|aubergine|bell pepper|capsicum|artichoke|cabbage|head cabbage|cardoon|mushroom|fungus|carrot|onion|potato|tomato|corn|squash|pumpkin|asparagus|spinach|lettuce)\b/i, category: 'produce' },
-  { match: /\b(ice cream|cheese|cheeseburger|yogurt|milk can|butter|cream)\b/i, category: 'dairy' },
-  { match: /\b(meat loaf|hot pot|hotdog|hot dog|frankfurter|bacon|sausage|steak|pork|chicken|ribeye)\b/i, category: 'meat' },
-  { match: /\b(pizza|burrito|taco|french loaf|bagel|pretzel|dough|pancake|hamburger|sandwich|guacamole)\b/i, category: 'snacks' },
-  { match: /\b(chocolate|cookie|biscuit|trifle|cake|candy|caramel|toffee|ice lolly)\b/i, category: 'snacks' },
-  { match: /\b(soup bowl|consomme|broth|sauce|ketchup|mustard|mayonnaise)\b/i, category: 'condiments' },
-  { match: /\b(can|canned|tin)\b/i, category: 'canned' },
-  { match: /\b(pill bottle|capsule|tablet)\b/i, category: 'medicine' },
+  // Fruits
+  { match: /\b(banana|orange|lemon|lime|apple|granny smith|strawberry|pineapple|pomegranate|fig|pear|peach|grape|melon|watermelon|kiwi|mango|papaya|persimmon|raspberry|blackberry|blueberry|cranberry|cherry|apricot|nectarine|plum|coconut|avocado|durian|jackfruit|lychee|rambutan|guava|passion fruit|dragon fruit|starfruit)\b/i, category: 'produce' },
+  // Vegetables
+  { match: /\b(broccoli|cauliflower|cucumber|zucchini|eggplant|aubergine|bell pepper|capsicum|artichoke|cabbage|head cabbage|cardoon|mushroom|fungus|carrot|onion|potato|sweet potato|tomato|corn|squash|pumpkin|asparagus|spinach|lettuce|kale|chard|arugula|rocket|celery|leek|garlic|ginger|radish|beet|beetroot|turnip|parsnip|okra|chili|chile pepper|bok choy|cassava|yam|edamame|spring onion|scallion|herb|basil|cilantro|parsley|mint)\b/i, category: 'produce' },
+  // Dairy
+  { match: /\b(ice cream|cheese|cheeseburger|yogurt|yoghurt|milk can|butter|cream|sour cream|cottage cheese|mozzarella|cheddar|parmesan|brie|feta|gouda|cream cheese|whipped cream|condensed milk|evaporated milk|kefir|ghee)\b/i, category: 'dairy' },
+  // Meat / Seafood
+  { match: /\b(meat loaf|hot pot|hotdog|hot dog|frankfurter|bacon|sausage|steak|pork|chicken|ribeye|beef|lamb|ham|salami|turkey|duck|fish|salmon|tuna|cod|trout|tilapia|sardine|anchovy|shrimp|prawn|crab|lobster|squid|octopus|clam|mussel|oyster|scallop|liver|tenderloin|brisket|ground beef|mince)\b/i, category: 'meat' },
+  // Bakery / snacks-as-meals
+  { match: /\b(pizza|burrito|taco|french loaf|bagel|pretzel|dough|pancake|hamburger|sandwich|guacamole|wrap|tortilla|baguette|croissant|muffin|donut|doughnut|waffle|toast|bread|naan|pita|sushi|noodle|pasta|spaghetti|ramen|dumpling|gyoza)\b/i, category: 'snacks' },
+  // Sweets / packaged snacks
+  { match: /\b(chocolate|cookie|biscuit|trifle|cake|candy|caramel|toffee|ice lolly|popsicle|brownie|cupcake|gum|jelly|jello|wafer|gummy|lollipop|chip|crisp|cracker|popcorn|granola bar|cereal|trail mix|nut|almond|cashew|pistachio|walnut|raisin|date)\b/i, category: 'snacks' },
+  // Condiments / sauces
+  { match: /\b(soup bowl|consomme|broth|sauce|ketchup|mustard|mayonnaise|vinegar|olive oil|peanut butter|jam|jelly|marmalade|honey|syrup|salsa|hummus|sambal|soy sauce|fish sauce|oyster sauce|sriracha|tabasco|salad dressing|relish|wasabi|miso|tahini|nutella|spread)\b/i, category: 'condiments' },
+  // Cans / preserved
+  { match: /\b(can|canned|tin|jar|preserve|pickled|sardines|tuna can|beans|chickpea|lentil|corn can|tomato sauce|coconut milk)\b/i, category: 'canned' },
+  // Medicine / health
+  { match: /\b(pill bottle|capsule|tablet|medicine|drug|vitamin|supplement|aspirin|ibuprofen|paracetamol|syringe|bandage)\b/i, category: 'medicine' },
 ];
 
 function mapCategory(label: string): string {
