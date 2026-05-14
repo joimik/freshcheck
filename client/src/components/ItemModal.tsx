@@ -118,6 +118,7 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
   const stopFnRef = useRef<(() => void) | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
+  const [camPermission, setCamPermission] = useState<'unknown' | 'denied' | 'granted'>('unknown');
   const [ocrProgress, setOcrProgress] = useState<number | null>(null);
   const [ocrPreview, setOcrPreview] = useState<{ text: string; date: string | null } | null>(null);
   const [visionGuess, setVisionGuess] = useState<VisionGuess | null>(null);
@@ -161,6 +162,7 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
     setVisionGuess(null);
     setClassifying(false);
     setCameraError(null);
+    setCamPermission('unknown');
     setTab('manual');
   }
 
@@ -177,6 +179,9 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
   async function startCamera() {
     setCameraError(null);
     try {
+      // Explicitly request camera permission first so the browser shows a proper prompt
+      await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setCamPermission('granted');
       const reader = new BrowserMultiFormatReader();
       readerRef.current = reader;
       const controls = await reader.decodeFromVideoDevice(
@@ -193,11 +198,12 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
     } catch (err) {
       const e = err as Error;
       const denied = /denied|NotAllowed/i.test(e.message + (e.name || ''));
-      setCameraError(
-        denied
-          ? 'Camera permission was denied. Use Photo or Manual instead.'
-          : 'Could not start camera. Try Photo or Manual.'
-      );
+      if (denied) {
+        setCamPermission('denied');
+        setCameraError('denied');
+      } else {
+        setCameraError('Could not start camera. Try Photo or Manual.');
+      }
     }
   }
 
@@ -418,19 +424,51 @@ export function ItemModal({ open, onClose, onAdd, onUpdate, editingItem }: Props
         <div className="p-5 space-y-4">
           {!isEditing && tab === 'barcode' && (
             <div className="space-y-3">
-              <div className="aspect-[4/3] rounded-xl overflow-hidden bg-[#0d0d0d] relative">
-                <video ref={videoRef} className="w-full h-full object-cover" />
-                <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-fresh/80 shadow-[0_0_12px_rgba(34,197,94,0.8)]" />
-              </div>
-              {cameraError && (
-                <div className="flex items-start gap-2 text-sm text-danger bg-red-900/30 p-3 rounded-lg">
-                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                  <span>{cameraError}</span>
+              {cameraError === 'denied' ? (
+                <div className="rounded-xl bg-[#1e1212] border border-red-900/50 p-5 space-y-4 text-center">
+                  <div className="text-3xl">📵</div>
+                  <div>
+                    <div className="font-semibold text-white mb-1">Camera blocked</div>
+                    <div className="text-xs text-gray-400 leading-relaxed">
+                      You blocked camera access. To fix it:
+                    </div>
+                  </div>
+                  <ol className="text-left text-xs text-gray-300 space-y-2 bg-[#242424] rounded-lg p-3">
+                    <li className="flex gap-2"><span className="text-fresh font-bold shrink-0">1.</span> Tap the <strong>🔒 lock icon</strong> in the address bar</li>
+                    <li className="flex gap-2"><span className="text-fresh font-bold shrink-0">2.</span> Tap <strong>Permissions</strong> → <strong>Camera</strong></li>
+                    <li className="flex gap-2"><span className="text-fresh font-bold shrink-0">3.</span> Switch it to <strong>Allow</strong></li>
+                    <li className="flex gap-2"><span className="text-fresh font-bold shrink-0">4.</span> Come back and tap the button below</li>
+                  </ol>
+                  <button
+                    type="button"
+                    onClick={() => { setCameraError(null); setCamPermission('unknown'); startCamera(); }}
+                    className="btn-primary w-full"
+                  >
+                    Try camera again
+                  </button>
+                  <button type="button" onClick={() => setTab('photo')} className="text-xs text-gray-500 hover:text-fresh transition">
+                    Or use Photo tab instead →
+                  </button>
+                </div>
+              ) : (
+                <div className="aspect-[4/3] rounded-xl overflow-hidden bg-[#0d0d0d] relative">
+                  <video ref={videoRef} className="w-full h-full object-cover" />
+                  <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-fresh/80 shadow-[0_0_12px_rgba(34,197,94,0.8)]" />
+                  {cameraError && (
+                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                      <div className="flex items-start gap-2 text-sm text-danger bg-red-900/30 p-3 rounded-lg">
+                        <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                        <span>{cameraError}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-              <p className="text-xs text-gray-600 text-center">
-                Point at a barcode — we check <span className="font-medium">6 databases</span> and fall back to <span className="font-medium">web search</span> if nothing matches.
-              </p>
+              {cameraError !== 'denied' && (
+                <p className="text-xs text-gray-600 text-center">
+                  Point at a barcode — we check <span className="font-medium">6 databases</span> and fall back to <span className="font-medium">web search</span> if nothing matches.
+                </p>
+              )}
 
               {/* Recently scanned — tap to re-add */}
               {recentBarcodes.length > 0 && (
