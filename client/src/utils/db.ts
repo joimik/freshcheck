@@ -10,7 +10,7 @@ import type {
   Stats,
 } from '../types';
 
-const DB_NAME = 'freshcheck';
+const DB_NAME = 'shelflife';
 const DB_VERSION = 3; // v3: cleanup of unused shopping + add status_changed_at tracking
 const STORE_ITEMS = 'items';
 const STORE_TEMPLATES = 'templates';

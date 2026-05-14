@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Barcode, Camera, Sparkles, ArrowRight } from 'lucide-react';
 
-const ONBOARDING_KEY = 'freshcheck.onboarded';
+const ONBOARDING_KEY = 'shelflife.onboarded';
 
 export function hasSeenOnboarding(): boolean {
   return localStorage.getItem(ONBOARDING_KEY) === 'true';
@@ -22,7 +22,7 @@ const SLIDES: Slide[] = [
   {
     emoji: '🥬',
     title: 'Never waste food again',
-    body: "FreshCheck tracks your fridge, freezer, and pantry so you know what's about to expire — before it does.",
+    body: "ShelfLife tracks your fridge, freezer, and pantry so you know what's about to expire — before it does.",
     icon: Sparkles,
   },
   {

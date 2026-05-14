@@ -61,7 +61,7 @@ export function Settings({ items, onClearAll }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `freshcheck-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `shelflife-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast('CSV exported', 'success');
@@ -91,7 +91,7 @@ export function Settings({ items, onClearAll }: Props) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-white flex items-center gap-1.5">
-              FreshCheck Premium
+              ShelfLife Premium
               <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full font-medium uppercase">
                 {premium.tier}
               </span>
@@ -187,7 +187,7 @@ export function Settings({ items, onClearAll }: Props) {
       <section className="card space-y-2">
         <button
           onClick={() => {
-            localStorage.removeItem('freshcheck.onboarded');
+            localStorage.removeItem('shelflife.onboarded');
             location.reload();
           }}
           className="btn-ghost w-full justify-start"
@@ -212,7 +212,7 @@ export function Settings({ items, onClearAll }: Props) {
       </section>
 
       <p className="text-center text-xs text-gray-600 pt-2">
-        FreshCheck v1.1 — made with 🥬 by Kenzo
+        ShelfLife v1.1 — made with 🥬 by Kenzo
       </p>
     </div>
   );

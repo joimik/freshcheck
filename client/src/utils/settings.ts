@@ -6,7 +6,7 @@ export type Settings = {
   defaultCategory: Category;
 };
 
-const KEY = 'freshcheck.settings';
+const KEY = 'shelflife.settings';
 
 const defaults: Settings = {
   notificationsEnabled: false,

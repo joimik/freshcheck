@@ -1,4 +1,4 @@
-// FreshCheck service worker — gives the app an offline shell and lets the
+// ShelfLife service worker — gives the app an offline shell and lets the
 // browser show local notifications when items are expiring.
 //
 // Caching strategy:
@@ -9,8 +9,8 @@
 
 // Bump these whenever you ship significant changes — forces returning users
 // to drop their stale cached assets and pull the new build.
-const SHELL_CACHE = 'freshcheck-shell-v3';
-const RUNTIME_CACHE = 'freshcheck-runtime-v3';
+const SHELL_CACHE = 'shelflife-shell-v4';
+const RUNTIME_CACHE = 'shelflife-runtime-v4';
 const SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -28,7 +28,7 @@ self.addEventListener('activate', (event) => {
       caches.keys().then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k !== SHELL_CACHE && k !== RUNTIME_CACHE)
+            .filter((k) => k !== SHELL_CACHE && k !== RUNTIME_CACHE && !k.startsWith('freshcheck-'))
             .map((k) => caches.delete(k))
         )
       ),

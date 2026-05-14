@@ -127,16 +127,16 @@ export function Streak() {
   const unlockedCount = ACHIEVEMENTS.filter((a) => a.unlocked(data)).length;
 
   async function share() {
-    const txt = `🔥 ${data!.streak}-day waste-free streak on FreshCheck!\n` +
+    const txt = `🔥 ${data!.streak}-day waste-free streak on ShelfLife!\n` +
       `💰 Saved Rp ${data!.saved_money.toLocaleString('id-ID')}\n` +
       `🌍 ${data!.saved_co2.toFixed(1)} kg of CO₂ kept out of the trash\n` +
       `🏆 ${unlockedCount}/${ACHIEVEMENTS.length} achievements unlocked\n\n` +
-      `Stop wasting food → freshcheck-rho.vercel.app`;
+      `Stop wasting food → shelflife.vercel.app`;
 
     // Use the native share sheet on mobile, fall back to clipboard on desktop
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'My FreshCheck streak 🔥', text: txt });
+        await navigator.share({ title: 'My ShelfLife streak 🔥', text: txt });
       } catch { /* user cancelled */ }
     } else {
       try {

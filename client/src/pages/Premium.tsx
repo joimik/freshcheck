@@ -53,7 +53,7 @@ export function Premium() {
     // TODO: Hook up RevenueCat / Stripe / Capacitor in-app purchase here.
     // For now, simulate the unlock so we can ship the UI first.
     setPremium(selected);
-    toast(`Welcome to FreshCheck Premium! 👑`, 'success');
+    toast(`Welcome to ShelfLife Premium! 👑`, 'success');
     setTimeout(() => nav('/'), 1200);
   }
 
@@ -125,7 +125,7 @@ export function Premium() {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 shadow-xl shadow-amber-500/30 mb-3">
           <Crown size={28} className="text-white" />
         </div>
-        <div className="text-xl font-bold text-white">Unlock the full FreshCheck</div>
+        <div className="text-xl font-bold text-white">Unlock the full ShelfLife</div>
         <div className="text-sm text-gray-400 mt-1 max-w-xs mx-auto">
           Support a one-developer indie app and get every feature.
         </div>

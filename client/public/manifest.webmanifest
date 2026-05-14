@@ -1,6 +1,6 @@
 {
-  "name": "FreshCheck — Expiry tracker & anti-waste",
-  "short_name": "FreshCheck",
+  "name": "ShelfLife — Expiry tracker & anti-waste",
+  "short_name": "ShelfLife",
   "description": "Track every item in your fridge, freezer & pantry. Never waste food again. Scan barcodes, photos, or type — get warned before things expire.",
   "start_url": "/",
   "scope": "/",

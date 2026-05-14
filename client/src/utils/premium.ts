@@ -4,8 +4,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-const PREMIUM_KEY = 'freshcheck.premium';
-const PREMIUM_EXPIRES_KEY = 'freshcheck.premium_expires';
+const PREMIUM_KEY = 'shelflife.premium';
+const PREMIUM_EXPIRES_KEY = 'shelflife.premium_expires';
 
 export type PremiumTier = 'free' | 'monthly' | 'yearly' | 'lifetime';
 
@@ -57,13 +57,13 @@ export function setPremium(tier: PremiumTier): void {
     localStorage.removeItem(PREMIUM_EXPIRES_KEY);
   }
   // Fire a custom event so other components react immediately
-  window.dispatchEvent(new CustomEvent('freshcheck:premium-changed'));
+  window.dispatchEvent(new CustomEvent('shelflife:premium-changed'));
 }
 
 export function cancelPremium(): void {
   localStorage.removeItem(PREMIUM_KEY);
   localStorage.removeItem(PREMIUM_EXPIRES_KEY);
-  window.dispatchEvent(new CustomEvent('freshcheck:premium-changed'));
+  window.dispatchEvent(new CustomEvent('shelflife:premium-changed'));
 }
 
 export function usePremium() {
@@ -73,10 +73,10 @@ export function usePremium() {
 
   useEffect(() => {
     const handler = () => refresh();
-    window.addEventListener('freshcheck:premium-changed', handler);
+    window.addEventListener('shelflife:premium-changed', handler);
     window.addEventListener('storage', handler);
     return () => {
-      window.removeEventListener('freshcheck:premium-changed', handler);
+      window.removeEventListener('shelflife:premium-changed', handler);
       window.removeEventListener('storage', handler);
     };
   }, [refresh]);

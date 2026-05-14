@@ -1,7 +1,7 @@
 import type { Item } from '../types';
 import { daysUntil } from './dates';
 
-const LAST_NOTIFY_KEY = 'freshcheck.lastNotify';
+const LAST_NOTIFY_KEY = 'shelflife.lastNotify';
 
 export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -40,11 +40,11 @@ export function notifyExpiringIfNeeded(items: Item[], alertDays: number) {
   const body =
     count === 1
       ? `${expiring[0].product_name} — use it before it goes bad.`
-      : `Open FreshCheck to see what to use up.`;
+      : `Open ShelfLife to see what to use up.`;
 
   // Prefer SW notification (works while the tab is backgrounded) and fall back
   // to the page Notification API.
   navigator.serviceWorker?.ready
-    .then((reg) => reg.showNotification(title, { body, icon: '/favicon.svg', tag: 'freshcheck-expiring' }))
+    .then((reg) => reg.showNotification(title, { body, icon: '/favicon.svg', tag: 'shelflife-expiring' }))
     .catch(() => new Notification(title, { body, icon: '/favicon.svg' }));
 }

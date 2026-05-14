@@ -1,8 +1,8 @@
 {
-  "name": "freshcheck",
+  "name": "shelflife",
   "version": "1.0.0",
   "private": true,
-  "description": "FreshCheck — expiry date scanner and fridge inventory manager (100% on-device, no backend)",
+  "description": "ShelfLife — expiry date scanner and fridge inventory manager (100% on-device, no backend)",
   "scripts": {
     "dev": "npm --prefix client run dev",
     "dev:lan": "npm --prefix client run dev:lan",

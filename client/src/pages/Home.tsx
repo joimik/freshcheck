@@ -107,7 +107,7 @@ export function Home({ items, loading, onDelete, onUseOne, onEdit, onAdd }: Prop
         <div className="flex-1">
           <div className="text-xs uppercase tracking-wider text-gray-500">Your kitchen</div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-1.5">
-            FreshCheck
+            ShelfLife
             {premium.isPremium && (
               <Crown size={16} className="text-amber-400" aria-label="Premium" />
             )}
